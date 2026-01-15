@@ -141,7 +141,7 @@ function updateAll(){
   document.getElementById('totDue').textContent = (sumTotal - sumDeposit).toFixed(0);
 }
 
-// PDF
+// PDF generate with footer credit
 function generatePDF(){
   const rate = parseNumber(document.getElementById('mealRate').value);
   const month = document.getElementById('monthInput').value || "December 2025";
@@ -169,7 +169,12 @@ function generatePDF(){
     body: tableData,
     theme:'grid',
     styles:{fontSize:9,cellPadding:3,overflow:'linebreak'},
-    columnStyles:{1:{cellWidth:60}}
+    columnStyles:{1:{cellWidth:60}},
+    didDrawPage: function (data) {
+      const pageHeight = doc.internal.pageSize.height || doc.internal.pageSize.getHeight();
+      doc.setFontSize(10);
+      doc.text("Developed by SALIM SADMAN SHORON ©", data.settings.margin.left, pageHeight - 10);
+    }
   });
 
   doc.save(`meal_accounts_${month.replace(/\s+/g,'_')}.pdf`);
@@ -180,4 +185,4 @@ window.onload = updateAll;
 </script>
 
 </body>
-  </html>
+</html>
