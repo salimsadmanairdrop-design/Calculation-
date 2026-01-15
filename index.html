@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<title>মেস হিসাব</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
+  h1, h2 { text-align: center; }
+  .rate, .month { text-align: center; margin: 15px 0; font-size: 1.1em; }
+  table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+  th { background: #4CAF50; color: white; }
+  .name { width: 25%; text-align: left; padding-left: 10px; }
+  input { width: 90%; padding: 5px; box-sizing: border-box; border: 1px solid #999; }
+  .result { background-color: #f0fff0; font-weight: bold; }
+  .total-row { background: #e8f5e9; font-weight: bold; font-size: 15px; }
+  .buttons { text-align: center; margin: 25px 0; }
+  button { padding: 12px 22px; margin: 0 12px; background: #1976D2; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+  button:hover { background: #1565C0; }
+</style>
+</head>
+<body>
+
+<h1>Accounts of Meal</h1>
+
+<div class="month">
+  মাস: <input type="text" id="monthInput" value="December 2025" style="width:200px;" oninput="calculateAll()">
+</div>
+
+<div class="rate">
+  মিল রেট: <input type="number" step="0.1" id="mealRate" value="46.8" oninput="calculateAll()"> টাকা/মিল
+</div>
+
+<table id="mealTable">
+  <thead>
+    <tr>
+      <th>SI</th>
+      <th class="name">Name</th>
+      <th>Meal</th>
+      <th>Rate</th>
+      <th>Meal Cost</th>
+      <th>Fixed Cost</th>
+      <th>Total Cost</th>
+      <th>Deposit</th>
+      <th>Due</th>
+    </tr>
+  </thead>
+  <tbody id="membersBody"></tbody>
+  <tfoot>
+    <tr class="total-row">
+      <td colspan="2">Total</td>
+      <td id="totMeal">0.0</td>
+      <td>—</td>
+      <td id="totMealCost">0</td>
+      <td id="totFixed">0</td>
+      <td id="totTotal">0</td>
+      <td id="totDeposit">0</td>
+      <td id="totDue">0</td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="buttons">
+  <button onclick="calculateAll()">হিসাব করো</button>
+  <button onclick="generatePDF()">PDF বানাও & ডাউনলোড</button>
+</div>
+
+<script>
+const { jsPDF } = window.jspdf;
+let members = [];
+
+// ১৭ জনের জন্য খালি লাইন
+for(let i=0; i<17; i++){
+  members.push({name:'', meal:0, fixed:0, deposit:0});
+}
+
+function calculateAll(){
+  const rate = parseFloat(document.getElementById('mealRate').value) || 0;
+  const tbody = document.getElementById('membersBody');
+  tbody.innerHTML = '';
+
+  let sumMeal=0, sumMealCost=0, sumFixed=0, sumTotal=0, sumDeposit=0;
+
+  members.forEach((m,i)=>{
+    let meal = parseFloat(m.meal) || 0;
+    let fixed = parseFloat(m.fixed) || 0;
+    let deposit = parseFloat(m.deposit) || 0;
+
+    let mealCost = meal*rate;
+    let total = mealCost + fixed;
+    let due = total - deposit;
+
+    sumMeal += meal;
+    sumMealCost += mealCost;
+    sumFixed += fixed;
+    sumTotal += total;
+    sumDeposit += deposit;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td class="name">
+        <input type="text" value="${m.name}" maxlength="16" style="width:100%;" oninput="members[${i}].name=this.value">
+      </td>
+      <td>
+        <input type="number" inputmode="decimal" pattern="[0-9]*" step="0.01" value="${meal}" 
+        oninput="members[${i}].meal=this.value; calculateAll()">
+      </td>
+      <td>${rate.toFixed(1)}</td>
+      <td class="result">${mealCost.toFixed(0)}</td>
+      <td>
+        <input type="number" inputmode="decimal" pattern="[0-9]*" value="${fixed}" 
+        oninput="members[${i}].fixed=this.value; calculateAll()">
+      </td>
+      <td class="result">${total.toFixed(0)}</td>
+      <td>
+        <input type="number" inputmode="decimal" pattern="[0-9]*" value="${deposit}" 
+        oninput="members[${i}].deposit=this.value; calculateAll()">
+      </td>
+      <td class="result">${due.toFixed(0)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Total update
+  document.getElementById('totMeal').textContent = sumMeal.toFixed(1);
+  document.getElementById('totMealCost').textContent = sumMealCost.toFixed(0);
+  document.getElementById('totFixed').textContent = sumFixed.toFixed(0);
+  document.getElementById('totTotal').textContent = sumTotal.toFixed(0);
+  document.getElementById('totDeposit').textContent = sumDeposit.toFixed(0);
+  document.getElementById('totDue').textContent = (sumTotal - sumDeposit).toFixed(0);
+}
+
+function generatePDF(){
+  const rate = parseFloat(document.getElementById('mealRate').value) || 46.8;
+  const month = document.getElementById('monthInput').value || "December 2025";
+  const doc = new jsPDF();
+
+  doc.setFontSize(16);
+  doc.text("Accounts of Meal",105,15,{align:"center"});
+  doc.setFontSize(12);
+  doc.text(`For The Month of ${month}`,105,22,{align:"center"});
+  doc.text(`মিল রেট: ${rate.toFixed(1)} টাকা`,105,30,{align:"center"});
+
+  let tableData = members.map((m,i)=>{
+    let meal = parseFloat(m.meal) || 0;
+    let fixed = parseFloat(m.fixed) || 0;
+    let deposit = parseFloat(m.deposit) || 0;
+    let mealCost = meal*rate;
+    let total = mealCost + fixed;
+    let due = total - deposit;
+    return [i+1, m.name, meal, rate.toFixed(1), mealCost.toFixed(0), fixed.toFixed(0), total.toFixed(0), deposit.toFixed(0), due.toFixed(0)];
+  });
+
+  doc.autoTable({
+    startY:40,
+    head:[['SI','Name','Meal','Rate','Meal Cost','Fixed Cost','Total Cost','Deposit','Due']],
+    body: tableData,
+    theme:'grid',
+    styles:{fontSize:9,cellPadding:3,overflow:'linebreak'},
+    columnStyles:{1:{cellWidth:60}}
+  });
+
+  // Save PDF
+  doc.save(`meal_accounts_${month.replace(/\s+/g,'_')}.pdf`);
+}
+
+window.onload = calculateAll;
+</script>
+
+</body>
+</html>
