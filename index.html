@@ -55,6 +55,11 @@ th{
     margin:5px 0;
 }
 
+tfoot tr{
+    background:#e0f2f1;
+    font-weight:bold;
+}
+
 .footer{
     text-align:center;
     margin-top:15px;
@@ -97,6 +102,18 @@ Meal Rate:
 </thead>
 <tbody>
 </tbody>
+<tfoot>
+<tr>
+<td colspan="2">Total</td>
+<td id="sumMeal">0</td>
+<td>—</td>
+<td id="sumMealCost">0</td>
+<td id="sumFixed">0</td>
+<td id="sumTotal">0</td>
+<td id="sumDeposit">0</td>
+<td id="sumDue">0</td>
+</tr>
+</tfoot>
 </table>
 
 <div class="footer">
@@ -114,13 +131,13 @@ SALIM SADMAN SHORON
 <script>
 const tbody = document.querySelector("#mealTable tbody");
 
+// Add row function
 function addRow(){
     let sl = tbody.rows.length + 1;
     let row = tbody.insertRow();
-
     row.innerHTML = `
     <td>${sl}</td>
-    <td><input type="text" maxlength="20"></td>
+    <td><input type="text" maxlength="20" oninput="updateFooter()"></td>
     <td><input type="number" min="0" oninput="calc(this)"></td>
     <td class="rateCell">${document.getElementById("mealRate").value}</td>
     <td>0</td>
@@ -131,6 +148,7 @@ function addRow(){
     `;
 }
 
+// Calc function
 function calc(el){
     const row = el.closest("tr");
     const meal = Number(row.cells[2].children[0].value || 0);
@@ -146,19 +164,40 @@ function calc(el){
     row.cells[4].innerText = mealCost;
     row.cells[6].innerText = total;
     row.cells[8].innerText = due;
+
+    updateFooter();
 }
 
-// Update all rates when top input changes
+// Update all rates
 function updateAllRates(){
-    const rate = Number(document.getElementById("mealRate").value);
     Array.from(tbody.rows).forEach(row => {
         calc(row.cells[2].children[0]);
     });
 }
 
+// Update footer totals
+function updateFooter(){
+    let sumMeal=0,sumMealCost=0,sumFixed=0,sumTotal=0,sumDeposit=0,sumDue=0;
+    Array.from(tbody.rows).forEach(row=>{
+        sumMeal += Number(row.cells[2].children[0]?.value || 0);
+        sumMealCost += Number(row.cells[4].innerText || 0);
+        sumFixed += Number(row.cells[5].children[0]?.value || 0);
+        sumTotal += Number(row.cells[6].innerText || 0);
+        sumDeposit += Number(row.cells[7].children[0]?.value || 0);
+        sumDue += Number(row.cells[8].innerText || 0);
+    });
+    document.getElementById("sumMeal").innerText = sumMeal;
+    document.getElementById("sumMealCost").innerText = sumMealCost;
+    document.getElementById("sumFixed").innerText = sumFixed;
+    document.getElementById("sumTotal").innerText = sumTotal;
+    document.getElementById("sumDeposit").innerText = sumDeposit;
+    document.getElementById("sumDue").innerText = sumDue;
+}
+
 // default 17 members
 for(let i=0;i<17;i++) addRow();
 
+// Download PDF
 function downloadPDF(){
     html2pdf().from(document.getElementById("pdfArea")).set({
         margin:6,
