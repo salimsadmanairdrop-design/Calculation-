@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mess Management & Meal Accounts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
+        .container { background: #fff; padding: 25px; max-width: 1100px; margin: auto; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        /* Fixed Cost Boxes */
+        .fixed-cost-section { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; background: #e8f4fd; padding: 20px; border-radius: 8px; border-left: 5px solid #1a73e8; }
+        .input-group { flex: 1; min-width: 150px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #333; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        .summary-box { flex-basis: 100%; display: flex; justify-content: space-between; margin-top: 15px; padding-top: 10px; border-top: 1px solid #cfe2f3; }
+        .summary-box b { color: #1a73e8; font-size: 16px; }
+
+        h2 { text-align: center; color: #2c3e50; margin: 0; }
+        .info-header { text-align: center; margin-bottom: 20px; }
+        .info-header div { margin: 5px 0; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 13px; }
+        th { background: #1abc9c; color: white; text-transform: uppercase; }
+        tfoot tr { background: #e0f2f1; font-weight: bold; }
+        
+        .btn-group { text-align: center; margin-top: 20px; }
+        .btn { padding: 10px 20px; border: none; background: #1abc9c; color: #fff; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; margin: 5px; }
+        .btn:hover { background: #16a085; }
+        .btn-remove { background: #e74c3c; }
+        .btn-remove:hover { background: #c0392b; }
+        .btn-pdf { background: #34495e; }
+
+        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
+        .footer a { color: #1a73e8; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="pdfArea">
+    <h2>Monthly Mess Accounts</h2>
+    
+    <div class="info-header">
+        <div><b>Month:</b> <input type="text" id="month" placeholder="Enter Month Name" style="width:180px; border:none; border-bottom:1px solid #ccc; text-align:center;"></div>
+        <div><b>Meal Rate:</b> <input type="number" id="mealRate" placeholder="Rate" style="width:100px; border:none; border-bottom:1px solid #ccc; text-align:center;" oninput="updateAllRates()"></div>
+    </div>
+    
+    <div class="fixed-cost-section">
+        <div class="input-group">
+            <label>House Rent</label>
+            <input type="number" id="rent" oninput="calculateFixed()">
+        </div>
+        <div class="input-group">
+            <label>Current Bill</label>
+            <input type="number" id="current" oninput="calculateFixed()">
+        </div>
+        <div class="input-group">
+            <label>Waste Bill</label>
+            <input type="number" id="waste" oninput="calculateFixed()">
+        </div>
+        <div class="input-group">
+            <label>Cook Bill</label>
+            <input type="number" id="cook" oninput="calculateFixed()">
+        </div>
+        <div class="input-group">
+            <label>Others</label>
+            <input type="number" id="others" oninput="calculateFixed()">
+        </div>
+        <div class="summary-box">
+            <span>Total Fixed Cost: <b id="displayTotalFixed">0</b> TK</span>
+            <span>Cost Per Member: <b id="displayPerMember">0</b> TK</span>
+        </div>
+    </div>
+
+    <table id="mealTable">
+        <thead>
+            <tr>
+                <th>Sl</th>
+                <th>Name</th>
+                <th>Meal</th>
+                <th>Rate</th>
+                <th>Meal Cost</th>
+                <th>Fixed</th>
+                <th>Total</th>
+                <th>Deposit</th>
+                <th>Due</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Total</td>
+                <td id="sumMeal">0</td>
+                <td>—</td>
+                <td id="sumMealCost">0</td>
+                <td id="sumFixed">0</td>
+                <td id="sumTotal">0</td>
+                <td id="sumDeposit">0</td>
+                <td id="sumDue">0</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="footer">
+        © Developed by <a href="https://www.facebook.com/salimsadmanshoron" target="_blank">SALIM SADMAN SHORON</a>
+    </div>
+</div>
+
+<div class="btn-group">
+    <button class="btn" onclick="addRow()">Add Member</button>
+    <button class="btn btn-remove" onclick="removeLastRow()">Remove Member</button>
+    <button class="btn btn-pdf" onclick="downloadPDF()">Download PDF Report</button>
+</div>
+
+<script>
+const tbody = document.querySelector("#mealTable tbody");
+let perMemberCost = 0;
+
+function calculateFixed() {
+    const rent = parseFloat(document.getElementById('rent').value) || 0;
+    const current = parseFloat(document.getElementById('current').value) || 0;
+    const waste = parseFloat(document.getElementById('waste').value) || 0;
+    const cook = parseFloat(document.getElementById('cook').value) || 0;
+    const others = parseFloat(document.getElementById('others').value) || 0;
+    
+    const totalFixed = rent + current + waste + cook + others;
+    const memberCount = tbody.rows.length;
+
+    document.getElementById('displayTotalFixed').innerText = totalFixed.toFixed(2);
+    
+    if(memberCount > 0) {
+        perMemberCost = totalFixed / memberCount;
+        document.getElementById('displayPerMember').innerText = perMemberCost.toFixed(2);
+        
+        Array.from(tbody.rows).forEach(row => {
+            row.cells[5].children[0].value = perMemberCost > 0 ? perMemberCost.toFixed(2) : "";
+            calc(row.cells[5].children[0]);
+        });
+    } else {
+        document.getElementById('displayPerMember').innerText = "0";
+    }
+}
+
+function addRow(){
+    let sl = tbody.rows.length + 1;
+    let row = tbody.insertRow();
+    row.innerHTML = `
+        <td>${sl}</td>
+        <td><input type="text" placeholder="Name" oninput="updateFooter()"></td>
+        <td><input type="number" oninput="calc(this)"></td>
+        <td class="rateCell"></td>
+        <td>0</td>
+        <td><input type="number" value="${perMemberCost > 0 ? perMemberCost.toFixed(2) : ""}" oninput="calc(this)"></td>
+        <td>0</td>
+        <td><input type="number" oninput="calc(this)"></td>
+        <td>0</td>
+    `;
+    calculateFixed();
+}
+
+function removeLastRow() {
+    if (tbody.rows.length > 0) {
+        tbody.deleteRow(-1);
+        calculateFixed();
+        updateFooter();
+    }
+}
+
+function calc(el){
+    const row = el.closest("tr");
+    const meal = Number(row.cells[2].children[0].value || 0);
+    const rate = Number(document.getElementById("mealRate").value || 0);
+    const fixed = Number(row.cells[5].children[0].value || 0);
+    const deposit = Number(row.cells[7].children[0].value || 0);
+
+    const mealCost = meal * rate;
+    const total = mealCost + fixed;
+    const due = total - deposit;
+
+    row.cells[3].innerText = rate > 0 ? rate : "";
+    row.cells[4].innerText = mealCost > 0 ? mealCost.toFixed(2) : "0";
+    row.cells[6].innerText = total > 0 ? total.toFixed(2) : "0";
+    row.cells[8].innerText = due !== 0 ? due.toFixed(2) : "0";
+
+    updateFooter();
+}
+
+function updateAllRates(){
+    Array.from(tbody.rows).forEach(row => {
+        calc(row.cells[2].children[0]);
+    });
+}
+
+function updateFooter(){
+    let sumMeal=0, sumMealCost=0, sumFixed=0, sumTotal=0, sumDeposit=0, sumDue=0;
+    Array.from(tbody.rows).forEach(row=>{
+        sumMeal += Number(row.cells[2].children[0]?.value || 0);
+        sumMealCost += Number(row.cells[4].innerText || 0);
+        sumFixed += Number(row.cells[5].children[0]?.value || 0);
+        sumTotal += Number(row.cells[6].innerText || 0);
+        sumDeposit += Number(row.cells[7].children[0]?.value || 0);
+        sumDue += Number(row.cells[8].innerText || 0);
+    });
+    document.getElementById("sumMeal").innerText = sumMeal;
+    document.getElementById("sumMealCost").innerText = sumMealCost.toFixed(2);
+    document.getElementById("sumFixed").innerText = sumFixed.toFixed(2);
+    document.getElementById("sumTotal").innerText = sumTotal.toFixed(2);
+    document.getElementById("sumDeposit").innerText = sumDeposit.toFixed(2);
+    document.getElementById("sumDue").innerText = sumDue.toFixed(2);
+}
+
+// Initial 10 members blank
+for(let i=0; i<10; i++) addRow();
+
+function downloadPDF(){
+    const element = document.getElementById("pdfArea");
+    html2pdf().from(element).set({
+        margin: 5,
+        filename: 'Mess_Report.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    }).save();
+}
+</script>
+
+</body>
+</html>
