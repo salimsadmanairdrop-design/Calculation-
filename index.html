@@ -12,7 +12,7 @@
         
         /* Fixed Cost Boxes */
         .fixed-cost-section { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; background: #e8f4fd; padding: 20px; border-radius: 8px; border-left: 5px solid #1a73e8; }
-        .input-group { flex: 1; min-width: 150px; }
+        .input-group { flex: 1; min-width: 140px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #333; }
         input[type="number"], input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
@@ -28,15 +28,17 @@
         th { background: #1abc9c; color: white; text-transform: uppercase; }
         tfoot tr { background: #e0f2f1; font-weight: bold; }
         
+        /* Special Style for small inputs */
+        .meal-input { width: 60px !important; text-align: center; }
+        .name-input { min-width: 120px; }
+
         .btn-group { text-align: center; margin-top: 20px; }
         .btn { padding: 10px 20px; border: none; background: #1abc9c; color: #fff; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; margin: 5px; }
         .btn:hover { background: #16a085; }
         .btn-remove { background: #e74c3c; }
-        .btn-remove:hover { background: #c0392b; }
         .btn-pdf { background: #34495e; }
 
         .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
-        .footer a { color: #1a73e8; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -46,7 +48,7 @@
     
     <div class="info-header">
         <div><b>Month:</b> <input type="text" id="month" placeholder="Enter Month Name" style="width:180px; border:none; border-bottom:1px solid #ccc; text-align:center;"></div>
-        <div><b>Meal Rate:</b> <input type="number" id="mealRate" placeholder="Rate" style="width:100px; border:none; border-bottom:1px solid #ccc; text-align:center;" oninput="updateAllRates()"></div>
+        <div><b>Auto Meal Rate:</b> <b id="mealRateDisplay">0.00</b> TK</div>
     </div>
     
     <div class="fixed-cost-section">
@@ -90,8 +92,7 @@
                 <th>Due</th>
             </tr>
         </thead>
-        <tbody>
-            </tbody>
+        <tbody></tbody>
         <tfoot>
             <tr>
                 <td colspan="2">Total</td>
@@ -120,6 +121,7 @@
 <script>
 const tbody = document.querySelector("#mealTable tbody");
 let perMemberCost = 0;
+let currentMealRate = 0;
 
 function calculateFixed() {
     const rent = parseFloat(document.getElementById('rent').value) || 0;
@@ -139,11 +141,10 @@ function calculateFixed() {
         
         Array.from(tbody.rows).forEach(row => {
             row.cells[5].children[0].value = perMemberCost > 0 ? perMemberCost.toFixed(2) : "";
-            calc(row.cells[5].children[0]);
+            refreshRowCalculations(row);
         });
-    } else {
-        document.getElementById('displayPerMember').innerText = "0";
     }
+    updateFooter();
 }
 
 function addRow(){
@@ -151,14 +152,14 @@ function addRow(){
     let row = tbody.insertRow();
     row.innerHTML = `
         <td>${sl}</td>
-        <td><input type="text" placeholder="Name" oninput="updateFooter()"></td>
-        <td><input type="number" oninput="calc(this)"></td>
-        <td class="rateCell"></td>
-        <td>0</td>
-        <td><input type="number" value="${perMemberCost > 0 ? perMemberCost.toFixed(2) : ""}" oninput="calc(this)"></td>
-        <td>0</td>
-        <td><input type="number" oninput="calc(this)"></td>
-        <td>0</td>
+        <td><input type="text" placeholder="Name" class="name-input"></td>
+        <td><input type="number" class="meal-input" oninput="globalRecalc()"></td>
+        <td class="rate-cell">0.00</td>
+        <td class="meal-cost-cell">0.00</td>
+        <td><input type="number" value="${perMemberCost > 0 ? perMemberCost.toFixed(2) : ""}" oninput="globalRecalc()"></td>
+        <td class="total-cell">0.00</td>
+        <td><input type="number" oninput="globalRecalc()"></td>
+        <td class="due-cell">0.00</td>
     `;
     calculateFixed();
 }
@@ -167,33 +168,42 @@ function removeLastRow() {
     if (tbody.rows.length > 0) {
         tbody.deleteRow(-1);
         calculateFixed();
-        updateFooter();
+        globalRecalc();
     }
 }
 
-function calc(el){
-    const row = el.closest("tr");
-    const meal = Number(row.cells[2].children[0].value || 0);
-    const rate = Number(document.getElementById("mealRate").value || 0);
-    const fixed = Number(row.cells[5].children[0].value || 0);
-    const deposit = Number(row.cells[7].children[0].value || 0);
+function globalRecalc() {
+    let totalMeals = 0;
+    let totalDeposits = 0;
 
-    const mealCost = meal * rate;
-    const total = mealCost + fixed;
-    const due = total - deposit;
+    Array.from(tbody.rows).forEach(row => {
+        totalMeals += Number(row.cells[2].children[0].value || 0);
+        totalDeposits += Number(row.cells[7].children[0].value || 0);
+    });
 
-    row.cells[3].innerText = rate > 0 ? rate : "";
-    row.cells[4].innerText = mealCost > 0 ? mealCost.toFixed(2) : "0";
-    row.cells[6].innerText = total > 0 ? total.toFixed(2) : "0";
-    row.cells[8].innerText = due !== 0 ? due.toFixed(2) : "0";
+    currentMealRate = (totalMeals > 0) ? (totalDeposits / totalMeals) : 0;
+    document.getElementById('mealRateDisplay').innerText = currentMealRate.toFixed(2);
+
+    Array.from(tbody.rows).forEach(row => {
+        refreshRowCalculations(row);
+    });
 
     updateFooter();
 }
 
-function updateAllRates(){
-    Array.from(tbody.rows).forEach(row => {
-        calc(row.cells[2].children[0]);
-    });
+function refreshRowCalculations(row) {
+    const meal = Number(row.cells[2].children[0].value || 0);
+    const fixed = Number(row.cells[5].children[0].value || 0);
+    const deposit = Number(row.cells[7].children[0].value || 0);
+
+    const mealCost = meal * currentMealRate;
+    const total = mealCost + fixed;
+    const due = total - deposit;
+
+    row.cells[3].innerText = currentMealRate.toFixed(2);
+    row.cells[4].innerText = mealCost.toFixed(2);
+    row.cells[6].innerText = total.toFixed(2);
+    row.cells[8].innerText = due.toFixed(2);
 }
 
 function updateFooter(){
@@ -214,7 +224,6 @@ function updateFooter(){
     document.getElementById("sumDue").innerText = sumDue.toFixed(2);
 }
 
-// Initial 10 members blank
 for(let i=0; i<10; i++) addRow();
 
 function downloadPDF(){
